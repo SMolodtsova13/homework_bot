@@ -59,8 +59,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Функция делает запрос к эндпоинту API-сервиса.
-    В случае успешного запроса должна вернуть ответ API."""
+    """Функция делает запрос к эндпоинту API-сервиса."""
     payload = {'from_date': timestamp}
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
