@@ -112,6 +112,7 @@ def main():
     old_verdict = ''
 
     while True:
+        time.sleep(RETRY_PERIOD)
         try:
             all_homeworks = get_api_answer(timestamp)
             check_response(all_homeworks)
@@ -123,7 +124,6 @@ def main():
                 message = f'Cтатус проверки "{homework_name}". {verdict}'
                 send_message(bot, message)
                 old_verdict = verdict
-            time.sleep(RETRY_PERIOD)
 
         except Exception as error:
             logger.error(f'Сбой в работе программы: {error}')
