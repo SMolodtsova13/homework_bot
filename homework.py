@@ -123,11 +123,11 @@ def main():
                 message = f'Cтатус проверки "{homework_name}". {verdict}'
                 send_message(bot, message)
                 old_verdict = verdict
-            time.sleep(RETRY_PERIOD)
 
         except Exception as error:
             logger.error(f'Сбой в работе программы: {error}')
-            break
+
+        time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
