@@ -2,20 +2,17 @@ import logging
 import os
 import sys
 import time
-from http import HTTPStatus
 from contextlib import suppress
+from http import HTTPStatus
 
+import requests
 from dotenv import load_dotenv
+from requests.exceptions import RequestException
 from telebot import TeleBot
 from telebot.apihelper import ApiException
 
-import requests
-from requests.exceptions import RequestException
-
-
 load_dotenv()
 
-logger = logging.getLogger(__name__)
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -40,75 +37,76 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверка доступности переменных окружения."""
-    logger.debug('Проверка токенов.')
+    logging.debug('Проверка токенов.')
     ENV_VARS = ('PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID')
-    missing_tokens = []
-    globals_values = globals()
-    for env in ENV_VARS:
-        token_value = globals_values[env]
-        if token_value == '' or token_value is None:
-            missing_tokens.append(env)
+    missing_tokens = [token for token in ENV_VARS if not globals()[token]]
 
-    if len(missing_tokens) > 0:
+    if missing_tokens:
         token_values = ' '.join(missing_tokens)
         message = f'Отсутствуют переменные окружения: {token_values}.'
-        logger.critical(message)
+        logging.critical(message)
         raise ValueError(message)
 
 
 def send_message(bot, message):
     """Oтправляет сообщение в Telegram-чат."""
-    logger.info(f'Сообщение: "{message}" отправляется.')
+    logging.info(f'Сообщение: "{message}" отправляется.')
     bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-    logger.debug(f'Сообщение: "{message}" отправлено.')
+    logging.debug(f'Сообщение: "{message}" отправлено.')
 
 
 def get_api_answer(timestamp):
     """Функция делает запрос к эндпоинту API-сервиса."""
     payload = {'from_date': timestamp}
-    logger.info(f'Запрос: "{payload}" отправляется.')
+    logging.info(f'Запрос отправляется к {ENDPOINT} с параметрами:"{payload}"')
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
-        if response.status_code != HTTPStatus.OK:
-            raise RequestException(response.text)
-    except RequestException:
-        raise ConnectionError(f'Ошибка запроса:{response.text}.')
+    except RequestException as error:
+        raise ConnectionError(f'Ошибка запроса к {ENDPOINT} с параметрами: '
+                              f'"{payload}". Ошибка:{error}.')
 
-    logger.info('Запрос отправлен успешно.')
+    if response.status_code != HTTPStatus.OK:
+        raise RequestException(f'Получен неожиданный статус ответа: '
+                               f'{response.status_code}')
+    logging.info('Запрос отправлен успешно.')
     return response.json()
 
 
 def check_response(response):
     """Функция проверяет ответ API на соответствие документации из урока."""
-    logger.info('Начало проверки ответа API')
+    logging.info('Начало проверки ответа API')
     if not isinstance(response, dict):
-        raise TypeError(f'{response} не является словарем')
+        raise TypeError(f'Ответ API не является словарем, '
+                        f'тип данных: {type(response)}')
 
     if HOMEWORKS not in response:
-        raise KeyError(f'{HOMEWORKS} отсутствует в словаре')
+        raise KeyError(f'Ключ {HOMEWORKS} отсутствует в ответе API')
 
     if not isinstance(response[HOMEWORKS], list):
-        raise TypeError(f'неверный формат {HOMEWORKS}')
+        raise TypeError(f'Ключ {HOMEWORKS} в ответе API не является списком, '
+                        f'тип данных: {type(response[HOMEWORKS])}')
 
-    logger.info('Пройдена проверка ответа API')
+    logging.info('Пройдена проверка ответа API')
 
 
 def parse_status(homework):
     """Функция извлекает из информации o конкретной домашней работе статус."""
-    logger.info('Начало проверки статуса работы')
+    logging.info('Начало проверки статуса работы')
     if HOMEWORK_NAME not in homework:
-        raise KeyError(f'Нет ключа {HOMEWORK_NAME}!')
+        raise KeyError(f'Нет ключа {HOMEWORK_NAME} '
+                       f'в данных о домашней работе {homework}!')
 
     if STATUS not in homework:
-        raise KeyError(f'Нет ключа {STATUS}!')
+        raise KeyError(f'Нет ключа {STATUS} '
+                       f'в данных о домашней работе {homework}!')
 
     homework_name = homework[HOMEWORK_NAME]
     status = homework[STATUS]
 
     if status not in HOMEWORK_VERDICTS:
-        raise ValueError(f'Статуса: {status} не существует!')
+        raise ValueError(f'Неожиданный статус: {status}!')
 
-    logger.info('Конец проверки статуса работы')
+    logging.info('Конец проверки статуса работы')
     return (f'Изменился статус проверки работы "{homework_name}". '
             f'{HOMEWORK_VERDICTS[status]}')
 
@@ -125,22 +123,23 @@ def main():
             all_homeworks = get_api_answer(timestamp)
             timestamp = all_homeworks.get(CURRENT_DATE, int(time.time()))
             check_response(all_homeworks)
-            if len(all_homeworks[HOMEWORKS]) == 0:
-                logger.info('Список домашних работ пуст!')
+            homeworks = all_homeworks[HOMEWORKS]
+            if not homeworks:
+                logging.info('Список домашних работ пуст!')
                 continue
 
-            last_homework = all_homeworks[HOMEWORKS][0]
+            last_homework = homeworks[0]
             new_message = parse_status(last_homework)
             if old_message != new_message:
                 send_message(bot, new_message)
                 old_message = new_message
-        except RequestException or ApiException as error:
-            logger.exception(f'Сбой в работе программы: {error}. '
-                             'Бот временно недоступен')
+        except (RequestException, ApiException) as error:
+            logging.exception(f'Сбой в работе программы: {error}. '
+                              'Бот временно недоступен')
 
         except Exception as error:
             new_message = f'Сбой в работе программы: {error}'
-            logger.exception(new_message)
+            logging.exception(new_message)
             with suppress(Exception):
                 if old_message != new_message:
                     send_message(bot, new_message)
