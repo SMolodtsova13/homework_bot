@@ -2,6 +2,8 @@ import logging
 import os
 import sys
 import time
+from http import HTTPStatus
+from contextlib import suppress
 
 from dotenv import load_dotenv
 from telebot import TeleBot
@@ -9,9 +11,7 @@ from telebot.apihelper import ApiException
 
 import requests
 from requests.exceptions import RequestException
-from http import HTTPStatus
 
-from contextlib import suppress
 
 load_dotenv()
 
