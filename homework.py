@@ -154,7 +154,7 @@ if __name__ == '__main__':
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setFormatter(logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(funcName)s'
-        ))
+    ))
     logging.basicConfig(
         level=logging.DEBUG,
         handlers=[stream_handler]
