@@ -11,6 +11,8 @@ from requests.exceptions import RequestException
 from telebot import TeleBot
 from telebot.apihelper import ApiException
 
+from exception import UnexpectedStatusCodeException
+
 load_dotenv()
 
 
@@ -64,10 +66,9 @@ def get_api_answer(timestamp):
     except RequestException as error:
         raise ConnectionError(f'Ошибка запроса к {ENDPOINT} с параметрами: '
                               f'"{payload}". Ошибка:{error}.')
-
     if response.status_code != HTTPStatus.OK:
-        raise RequestException(f'Получен неожиданный статус ответа: '
-                               f'{response.status_code}')
+        raise UnexpectedStatusCodeException(response.status_code)
+
     logging.info('Запрос отправлен успешно.')
     return response.json()
 
@@ -82,9 +83,10 @@ def check_response(response):
     if HOMEWORKS not in response:
         raise KeyError(f'Ключ {HOMEWORKS} отсутствует в ответе API')
 
-    if not isinstance(response[HOMEWORKS], list):
+    homeworks = response[HOMEWORKS]
+    if not isinstance(homeworks, list):
         raise TypeError(f'Ключ {HOMEWORKS} в ответе API не является списком, '
-                        f'тип данных: {type(response[HOMEWORKS])}')
+                        f'тип данных: {type(homeworks)}')
 
     logging.info('Пройдена проверка ответа API')
 
